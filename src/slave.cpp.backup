@@ -46,21 +46,19 @@ void setup() {
 }
 
 void loop() {
-  if (digitalRead(PIN_ENABLE) == HIGH && fromMaster.available()) {
+  if (fromMaster.available()) {
     String line = fromMaster.readStringUntil('\n');
     line.trim();
 
     SlaveCommand cmd;
     if (parsePacket(line, cmd) && cmd.wheel == MY_WHEEL) {
 
-      // === วัด rpm จริง หรือใส่ placeholder ===
-      int rpm_out = cmd.rpm_in; // TODO: แทนด้วยค่าจริงจาก encoder
+      int rpm_out = cmd.rpm_in; // TODO: แทนด้วยค่าจริง
 
-      delay(30); // รอให้ Master สลับเป็น RX เสร็จ
+      delay(30);
 
-      // สลับ pin 16 จาก RX → TX เพื่อส่ง feedback กลับ
       fromMaster.end();
-      fromMaster.begin(9600, SERIAL_8N1, -1, 16); // TX=16
+      fromMaster.begin(9600, SERIAL_8N1, -1, 16);
 
       char buf[32];
       snprintf(buf, sizeof(buf), "[%d,%d,%d]\n",
@@ -68,9 +66,8 @@ void loop() {
       fromMaster.print(buf);
       fromMaster.flush();
 
-      // สลับกลับเป็น RX รอรอบถัดไป
       fromMaster.end();
-      fromMaster.begin(9600, SERIAL_8N1, 16, -1); // RX=16
+      fromMaster.begin(9600, SERIAL_8N1, 16, -1);
     }
   }
 }

@@ -78,6 +78,8 @@ void setup() {
   Serial.begin(115200);
   pinMode(PIN_ALL, OUTPUT);
   digitalWrite(PIN_ALL, LOW);
+  delay(1000); // รอ Slave 1 boot เสร็จก่อนส่งรอบแรก
+  Serial.println("Master Command Center - Start");
 }
 
 void loop() {
