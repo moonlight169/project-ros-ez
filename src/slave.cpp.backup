@@ -3,7 +3,7 @@
 
 // ==============================
 // เปลี่ยนเลขนี้แต่ละตัว: 1,2,3,4
-#define MY_WHEEL 1
+#define MY_WHEEL 4
 // ==============================
 
 HardwareSerial fromMaster(1); // RX=16
@@ -51,16 +51,26 @@ void loop() {
     line.trim();
 
     SlaveCommand cmd;
-    if (parsePacket(line, cmd)) {
+    if (parsePacket(line, cmd) && cmd.wheel == MY_WHEEL) {
 
-      // เช็คว่า packet นี้ของเราไหม
-      if (cmd.wheel == MY_WHEEL) {
-        Serial.printf("[W%d] timer:%d kp:%.1f ki:%.1f kd:%.1f rpm:%d\n",
-                      cmd.wheel, cmd.timer,
-                      cmd.kp, cmd.ki, cmd.kd, cmd.rpm_in);
+      // === วัด rpm จริง หรือใส่ placeholder ===
+      int rpm_out = cmd.rpm_in; // TODO: แทนด้วยค่าจริงจาก encoder
 
-        // ใส่ logic ควบคุม motor ที่นี่
-      }
+      delay(30); // รอให้ Master สลับเป็น RX เสร็จ
+
+      // สลับ pin 16 จาก RX → TX เพื่อส่ง feedback กลับ
+      fromMaster.end();
+      fromMaster.begin(9600, SERIAL_8N1, -1, 16); // TX=16
+
+      char buf[32];
+      snprintf(buf, sizeof(buf), "[%d,%d,%d]\n",
+               cmd.wheel, cmd.timer, rpm_out);
+      fromMaster.print(buf);
+      fromMaster.flush();
+
+      // สลับกลับเป็น RX รอรอบถัดไป
+      fromMaster.end();
+      fromMaster.begin(9600, SERIAL_8N1, 16, -1); // RX=16
     }
   }
 }
