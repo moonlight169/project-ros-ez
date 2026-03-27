@@ -84,12 +84,12 @@ void loop() {
   Serial.printf("=== Sending commands to Slaves ===\n");
   for (int i = 0; i < 4; i++) {
    
-    SlaveCommand cmd = {i+1, 160, 1.0, 1.0, 1.0, 250};
+    SlaveCommand cmd = {i+1, 160+i, 1.0, 1.0, 1.0, 250};
     SlaveFeedback fb = sendAndReceive(i, cmd);
 
     // ใช้ fb.rpm_out ทำ PID หรือ logic อื่นที่นี่
 
     delay(50);
   }
-  delay(5000);
+  delay(3000);
 }
