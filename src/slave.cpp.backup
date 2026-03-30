@@ -1,14 +1,11 @@
 #include <Arduino.h>
 #include <HardwareSerial.h>
 
-// ==============================
-// เปลี่ยนเลขนี้แต่ละตัว: 1,2,3,4
-#define MY_WHEEL 4
-// ==============================
+#define MY_WHEEL 1
+#define PIN_ENABLE 4
+#define RXTX_PIN 16
 
-HardwareSerial fromMaster(1); // RX=16
-
-const int PIN_ENABLE = 4;
+HardwareSerial BusSerial(1);
 
 struct SlaveCommand {
   int   wheel;
@@ -17,57 +14,50 @@ struct SlaveCommand {
   int   rpm_in;
 };
 
-bool parsePacket(String line, SlaveCommand &cmd) {
-  line.replace("[", "");
-  line.replace("]", "");
-
-  int idx = 0;
-  String t[6];
-  for (char c : line) {
-    if (c == ',') { idx++; if (idx >= 6) return false; }
-    else t[idx] += c;
-  }
-  if (idx != 5) return false;
-
-  cmd.wheel  = t[0].toInt();
-  cmd.timer  = t[1].toInt();
-  cmd.kp     = t[2].toFloat();
-  cmd.ki     = t[3].toFloat();
-  cmd.kd     = t[4].toFloat();
-  cmd.rpm_in = t[5].toInt();
-  return true;
+bool parsePacket(char *line, SlaveCommand &cmd) {
+  return sscanf(line, "[%d,%d,%f,%f,%f,%d]",
+    &cmd.wheel, &cmd.timer,
+    &cmd.kp, &cmd.ki, &cmd.kd,
+    &cmd.rpm_in) == 6;
 }
 
 void setup() {
   Serial.begin(115200);
   pinMode(PIN_ENABLE, INPUT);
-  fromMaster.begin(9600, SERIAL_8N1, 16, -1); // RX=16 only
+  BusSerial.begin(115200, SERIAL_8N1, RXTX_PIN, RXTX_PIN);
   Serial.printf("Slave %d ready\n", MY_WHEEL);
 }
 
 void loop() {
-  if (fromMaster.available()) {
-    String line = fromMaster.readStringUntil('\n');
-    line.trim();
+  static char buf[64];
+  static int pos = 0;
 
-    SlaveCommand cmd;
-    if (parsePacket(line, cmd) && cmd.wheel == MY_WHEEL) {
+  while (BusSerial.available()) {
+    char c = BusSerial.read();
 
-      int rpm_out = cmd.rpm_in; // TODO: แทนด้วยค่าจริง
+    if (c == '\n') {
+      buf[pos] = '\0';
+      pos = 0;
 
-      delay(30);
+      SlaveCommand cmd;
+      if (parsePacket(buf, cmd) && cmd.wheel == MY_WHEEL) {
 
-      fromMaster.end();
-      fromMaster.begin(9600, SERIAL_8N1, -1, 16);
+        int rpm_out = cmd.rpm_in;
 
-      char buf[32];
-      snprintf(buf, sizeof(buf), "[%d,%d,%d]\n",
-               cmd.wheel, cmd.timer, rpm_out);
-      fromMaster.print(buf);
-      fromMaster.flush();
+        // ===== SEND FEEDBACK =====
+        while (digitalRead(PIN_ENABLE) == HIGH);
 
-      fromMaster.end();
-      fromMaster.begin(9600, SERIAL_8N1, 16, -1);
+        char out[32];
+        int len = snprintf(out, sizeof(out),
+          "[%d,%d,%d]\n",
+          cmd.wheel, cmd.timer, rpm_out);
+
+        BusSerial.write((uint8_t*)out, len);
+        BusSerial.flush();
+      }
+    }
+    else if (pos < 63) {
+      buf[pos++] = c;
     }
   }
 }

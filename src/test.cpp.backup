@@ -1,0 +1,40 @@
+#include <Arduino.h>
+#include <SPI.h>
+#include <Ethernet.h>
+
+#define W5500_CS 5
+
+void setup() {
+    Serial.begin(115200);
+    while (!Serial) { delay(10); }
+
+    Serial.println("\n=== W5500 Hardware Connection Test ===");
+
+    // เริ่มต้นใช้งาน CS Pin ตามรูปวงจร
+    Ethernet.init(W5500_CS);
+
+    // ตรวจสอบ Hardware Status
+    Serial.print("Checking W5500 hardware... ");
+    EthernetHardwareStatus hw = Ethernet.hardwareStatus();
+
+    if (hw == EthernetNoHardware) {
+        Serial.println("\n[FAILED] ไม่พบโมดูล! กรุณาเช็คสายไฟ (CS, MOSI, MISO, SCK)");
+    } 
+    else {
+        // ถ้าค่าที่ได้ไม่ใช่ EthernetNoHardware แสดงว่ามันคุยกับชิปได้แล้ว
+        Serial.println("\n[SUCCESS] ตรวจพบ Hardware เรียบร้อย!");
+        Serial.print("Hardware Type detected: ");
+        Serial.println(hw); // จะแสดงเลข 3 หรือค่าอื่นๆ ตามรุ่นชิป
+
+        // เช็คสถานะสาย LAN
+        if (Ethernet.linkStatus() == LinkOFF) {
+            Serial.println("Status: No LAN cable connected (Normal for testing).");
+        } else {
+            Serial.println("Status: LAN cable connected!");
+        }
+    }
+}
+
+void loop() {
+    // พักไว้ก่อน
+}
