@@ -1,0 +1,47 @@
+#include <Arduino.h>
+#include <SPI.h>
+#include <Ethernet.h>
+
+// --- ตั้งค่าพิน ---
+const int eth_cs = 5;
+const int eth_rst = 23; // ถ้าไม่ได้ต่อพินนี้ ให้ปล่อยไว้ หรือต่อเข้า 3.3V
+
+// --- ตั้งค่า Network (เปลี่ยนเลขให้ตรงกับวงแลนบ้านคุณ) ---
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0x01 };
+IPAddress ip(10, 0, 0, 2); 
+IPAddress dns(8, 8, 8, 8);
+IPAddress gateway(10, 0, 0, 1);
+IPAddress subnet(255, 255, 255, 0);
+
+void setup() {
+  Serial.begin(115200);
+  while (!Serial); 
+
+  // 1. จัดการพิน Reset (ถ้าต่อขา RST ไว้กับ GPIO 23)
+  pinMode(eth_rst, OUTPUT);
+  digitalWrite(eth_rst, LOW);
+  delay(100);
+  digitalWrite(eth_rst, HIGH);
+  delay(500);
+
+  // 2. ตั้งค่า SPI และ CS
+  Ethernet.init(eth_cs);
+
+  // 3. เริ่มต้นด้วย Static IP เพื่อข้ามขั้นตอน DHCP ที่ชอบค้าง
+  Serial.println("Starting Ethernet with Static IP...");
+  Ethernet.begin(mac, ip, dns, gateway, subnet);
+
+  // 4. ตรวจสอบสถานะ Hardware อีกครั้ง
+  if (Ethernet.hardwareStatus() == EthernetNoHardware) {
+    Serial.println("Error: W5500 was not found. Check wiring!");
+  } else if (Ethernet.linkStatus() == LinkOFF) {
+    Serial.println("Error: Ethernet cable is not connected.");
+  } else {
+    Serial.print("SUCCESS! My IP: ");
+    Serial.println(Ethernet.localIP());
+  }
+}
+
+void loop() {
+  // ลอง Ping หรือเขียน Code รับส่งข้อมูลที่นี่
+}
