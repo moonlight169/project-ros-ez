@@ -1,0 +1,21 @@
+#include <Arduino.h>
+#include <PS4Controller.h>
+
+void setup() {
+    Serial.begin(115200);
+    PS4.begin("d4:e9:f4:e2:1c:c8");
+    Serial.println("Ready.");
+}
+
+void loop() {
+    if (PS4.isConnected()) {
+        if (PS4.Cross()) Serial.println("Cross กด!");
+        if (PS4.Circle()) Serial.println("Circle กด!");
+
+        // อ่านค่า Joystick
+        Serial.print("LX: "); Serial.println(PS4.LStickX());
+        Serial.print("LY: "); Serial.println(PS4.LStickY());
+        
+    }
+    delay(100); // ลดความถี่ในการอ่านข้อมูล
+}
