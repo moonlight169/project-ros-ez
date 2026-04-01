@@ -1,88 +1,120 @@
 #include <Arduino.h>
 #include <HardwareSerial.h>
 
-const int  PIN_ALL    = 4;
-const int  TX_PINS[4] = {13, 27, 26, 25};
-const long BAUD       = 115200;
-const int  RX_TIMEOUT = 5; 
-
+// --- Configuration ---
+const int PIN_ALL = 4;
+const long BAUD = 115200;
+const int RX_TIMEOUT_MS = 5;
 HardwareSerial SlaveSerial(1);
 
+// --- Data Structures ---
 struct SlaveCommand {
-  int   wheel, timer;
-  float kp, ki, kd;
-  int   rpm_in;
+    int wheel, timer;
+    float kp, ki, kd;
+    int rpm_in;
 };
 
 struct SlaveFeedback {
-  int  wheel, timer, rpm_out;
-  bool valid;
+    int wheel = 0;
+    int timer = 0;
+    int rpm_out = 0;
+    bool valid = false;
+    char raw[32] = ""; // เก็บ String ที่ได้รับมาเพื่อนำไป Print
 };
 
-SlaveFeedback sendAndReceive(int idx, SlaveCommand cmd) {
-  SlaveFeedback fb = {0, 0, 0, false};
+// --- OOP Class ---
+class SlaveWheel {
+private:
+    int _idx;
+    int _txPin;
+    SlaveFeedback _lastFb;
 
-  // ── TX ──
-  SlaveSerial.end();
-  SlaveSerial.begin(BAUD, SERIAL_8N1, -1, TX_PINS[idx]);
+public:
+    SlaveWheel(int index, int txPin) : _idx(index), _txPin(txPin) {}
 
-  char buf[64];
-  int len = snprintf(buf, sizeof(buf), "[%d,%d,%.1f,%.1f,%.1f,%d]", // ลบ \n ออกจาก buf เพื่อจัด format ตอน print เอง
-                     cmd.wheel, cmd.timer, cmd.kp, cmd.ki, cmd.kd, cmd.rpm_in);
+    // ฟังก์ชันส่งคำสั่งและรับค่า (Return string ที่ส่งไป เพื่อเอาไป Print ข้างนอก)
+    String update(SlaveCommand cmd) {
+        _lastFb.valid = false;
+        _lastFb.raw[0] = '\0'; // ล้างค่าเดิม
 
-  // --- OUTPUT: Send ---
-  Serial.printf("S%d Send %s\n", idx + 1, buf); 
+        // 1. เตรียมข้อมูลที่จะส่ง
+        char txBuf[64];
+        snprintf(txBuf, sizeof(txBuf), "[%d,%d,%.1f,%.1f,%.1f,%d]", 
+                 cmd.wheel, cmd.timer, cmd.kp, cmd.ki, cmd.kd, cmd.rpm_in);
 
-  digitalWrite(PIN_ALL, HIGH);
-  SlaveSerial.write((uint8_t*)buf, len);
-  SlaveSerial.write('\n'); // ส่ง \n ปิดท้าย
-  SlaveSerial.flush();
-  digitalWrite(PIN_ALL, LOW);
-
-  // ── RX ──
-  SlaveSerial.end();
-  SlaveSerial.begin(BAUD, SERIAL_8N1, TX_PINS[idx], -1);
-
-  char line[32];
-  int  pos = 0;
-  unsigned long t0 = micros();
-
-  while (micros() - t0 < (unsigned long)RX_TIMEOUT * 1000UL) {
-    while (SlaveSerial.available()) {
-      char c = SlaveSerial.read();
-      if (c == '\n') {
-        line[pos] = '\0';
+        // ── TX Phase ──
+        SlaveSerial.end();
+        SlaveSerial.begin(BAUD, SERIAL_8N1, -1, _txPin);
         
-        // --- OUTPUT: Feedback ---
-        Serial.printf("S%d Feedback [%s]\n", idx + 1, line);
-        
-        if (sscanf(line, "[%d,%d,%d]", &fb.wheel, &fb.timer, &fb.rpm_out) == 3) {
-          fb.valid = true;
+        digitalWrite(PIN_ALL, HIGH);
+        SlaveSerial.print(txBuf);
+        SlaveSerial.write('\n');
+        SlaveSerial.flush();
+        digitalWrite(PIN_ALL, LOW);
+
+        // ── RX Phase ──
+        SlaveSerial.end();
+        SlaveSerial.begin(BAUD, SERIAL_8N1, _txPin, -1);
+
+        int pos = 0;
+        unsigned long t0 = millis();
+        while (millis() - t0 < RX_TIMEOUT_MS) {
+            while (SlaveSerial.available()) {
+                char c = SlaveSerial.read();
+                if (c == '\n') {
+                    _lastFb.raw[pos] = '\0';
+                    if (sscanf(_lastFb.raw, "[%d,%d,%d]", &_lastFb.wheel, &_lastFb.timer, &_lastFb.rpm_out) == 3) {
+                        _lastFb.valid = true;
+                    }
+                    return String(txBuf); 
+                }
+                if (pos < 31) _lastFb.raw[pos++] = c;
+            }
         }
-        return fb;
-      }
-      if (pos < 31) line[pos++] = c;
+        return String(txBuf);
     }
-  }
-  
-  Serial.printf("S%d Feedback [TIMEOUT]\n", idx + 1);
-  return fb;
-}
+
+    SlaveFeedback getFeedback() const { return _lastFb; }
+    int getID() const { return _idx; }
+};
+
+// สร้าง Array ของ Object 4 ล้อ
+SlaveWheel wheels[4] = {
+    SlaveWheel(1, 13),
+    SlaveWheel(2, 27),
+    SlaveWheel(3, 26),
+    SlaveWheel(4, 25)
+};
 
 void setup() {
-  Serial.begin(115200);
-  pinMode(PIN_ALL, OUTPUT);
-  digitalWrite(PIN_ALL, LOW);
-  delay(500);
-  Serial.println("--- System Start ---");
+    Serial.begin(115200);
+    pinMode(PIN_ALL, OUTPUT);
+    digitalWrite(PIN_ALL, LOW);
+    delay(500);
+    Serial.println("--- System Start ---");
 }
 
 void loop() {
-  for (int i = 0; i < 4; i++) {
-    SlaveCommand cmd = {i + 1, 160, 1.0f, 1.0f, 1.0f, 250};
-    sendAndReceive(i, cmd);
-    Serial.println("-------------------");
-  }
-  // หน่วง 5ms เพื่อให้ Serial Buffer ของคอมพิวเตอร์ไม่เต็มจนเกินไป
-  delay(5); 
+    for (int i = 0; i < 4; i++) {
+        SlaveCommand cmd = {i + 1, 160, 1.0f, 1.0f, 1.0f, 250};
+
+        // สั่งทำงานและรับค่า String ที่เพิ่งส่งไป
+        String sentStr = wheels[i].update(cmd);
+        
+        // ดึง Feedback ล่าสุดมาเก็บในตัวแปร
+        SlaveFeedback fb = wheels[i].getFeedback();
+
+        // --- OUTPUT: แสดงผลเหมือนเวอร์ชันแรก ---
+        Serial.printf("S%d Send %s\n", wheels[i].getID(), sentStr.c_str());
+        
+        if (fb.valid) {
+            Serial.printf("S%d Feedback [%s]\n", wheels[i].getID(), fb.raw);
+        } else {
+            Serial.printf("S%d Feedback [TIMEOUT]\n", wheels[i].getID());
+        }
+        
+        Serial.println("-------------------");
+    }
+
+    delay(100); 
 }
