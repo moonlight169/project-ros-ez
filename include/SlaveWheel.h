@@ -14,7 +14,7 @@ struct SlaveFeedback {
     int timer = 0;
     int rpm_out = 0;
     bool valid = false;
-    char raw[32] = ""; 
+    char replyText[32] = ""; 
 };
 
 class SlaveWheel {
@@ -29,15 +29,15 @@ public:
     // ฟังก์ชันอัปเดตข้อมูลมอเตอร์
     void update(SlaveCommand cmd, HardwareSerial &serial, int pinAll) {
         _lastFb.valid = false;
-        char txBuf[64];
-        snprintf(txBuf, sizeof(txBuf), "[%d,%d,%.1f,%.1f,%.1f,%d]", 
+        char commandText[64];
+        snprintf(commandText, sizeof(commandText), "[%d,%d,%.1f,%.1f,%.1f,%d]", 
                  cmd.wheel, cmd.timer, cmd.kp, cmd.ki, cmd.kd, cmd.rpm_in);
 
         serial.end();
         serial.begin(2000000, SERIAL_8N1, -1, _txPin);
         
         digitalWrite(pinAll, HIGH);
-        serial.println(txBuf);
+        serial.println(commandText);
         serial.flush();
         digitalWrite(pinAll, LOW);
 
@@ -50,13 +50,13 @@ public:
             while (serial.available()) {
                 char c = serial.read();
                 if (c == '\n') {
-                    _lastFb.raw[pos] = '\0';
-                    if (sscanf(_lastFb.raw, "[%d,%d,%d]", &_lastFb.wheel, &_lastFb.timer, &_lastFb.rpm_out) == 3) {
+                    _lastFb.replyText[pos] = '\0';
+                    if (sscanf(_lastFb.replyText, "[%d,%d,%d]", &_lastFb.wheel, &_lastFb.timer, &_lastFb.rpm_out) == 3) {
                         _lastFb.valid = true;
                     }
                     return;
                 }
-                if (pos < 31) _lastFb.raw[pos++] = c;
+                if (pos < 31) _lastFb.replyText[pos++] = c;
             }
         }
     }

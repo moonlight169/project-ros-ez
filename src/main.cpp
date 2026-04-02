@@ -8,7 +8,7 @@ const int PIN_ALL = 4;
 HardwareSerial SlaveSerial(1);
 
 // โครงสร้างเก็บสถานะปัจจุบันของแต่ละล้อ
-struct ControlParam {
+struct DataLoop {
     int timer = 160;
     float kp = 1.0f, ki = 1.0f, kd = 1.0f;
     int rpm_in = 0;
@@ -20,11 +20,10 @@ SlaveWheel wheels[4] = {
 };
 
 // Buffer สำหรับรวมข้อมูลส่งกลับ
-char globalBuffer[512]; 
+char allWheelsStatus[512]; 
 
 void setup() {
-    // Serial สำหรับ Debug ตอนเริ่ม
-    Serial.begin(115200);
+    // Serial.begin(115200);
     pinMode(PIN_ALL, OUTPUT);
     
     // ตั้งค่า W5500 (NetworkConfig.h)
@@ -35,14 +34,14 @@ void setup() {
 
 void loop() {
     // --- 1. รับคำสั่งจาก Windows (แบบ Multi-Array [[...],[...]]) ---
-    int packetSize = Udp.parsePacket();
-    if (packetSize) {
-        char rxBuf[256]; // Buffer ใหญ่ขึ้นเพื่อรับหลายล้อ
-        int len = Udp.read(rxBuf, 255);
+    int hasNewData = Udp.parsePacket();
+    if (hasNewData) {
+        char rawCommand[256]; // Buffer ใหญ่ขึ้นเพื่อรับหลายล้อ
+        int len = Udp.read(rawCommand, 255);
         if (len > 0) {
-            rxBuf[len] = '\0';
+            rawCommand[len] = '\0';
 
-            char* ptr = rxBuf;
+            char* ptr = rawCommand;
             // วนลูปหา '[' เพื่อแกะข้อมูลแต่ละชุด
             while ((ptr = strchr(ptr, '[')) != NULL) {
                 ptr++; // ขยับข้าม '['
@@ -73,9 +72,9 @@ void loop() {
     }
 
     // --- 2. อัปเดตล้อทุกล้อ & เตรียม Feedback ---
-    int offset = 0;
+    int writePos = 0;
     // เคลียร์ buffer ก่อนเขียนใหม่
-    globalBuffer[0] = '\0';
+    allWheelsStatus[0] = '\0';
 
     for (int i = 0; i < 4; i++) {
         // ใช้ค่าล่าสุดที่อยู่ใน wheelParams สั่งงาน
@@ -95,18 +94,18 @@ void loop() {
         SlaveFeedback fb = wheels[i].getFeedback();
         
         // รวมร่าง Feedback: [wheel, time, rpm_out]
-        int written = snprintf(globalBuffer + offset, sizeof(globalBuffer) - offset, 
+        int written = snprintf(allWheelsStatus + writePos, sizeof(allWheelsStatus) - writePos, 
                                "[%d,%d,%d]%s", 
                                i + 1, 
                                wheelParams[i].timer, 
                                fb.valid ? fb.rpm_out : -1,
                                (i < 3) ? "|" : "");
-        offset += written;
+        writePos += written;
     }
 
     // --- 3. ส่งกลับ Windows (UDP) ---
-    if (offset > 0) {
-        sendPacket(globalBuffer); 
+    if (writePos > 0) {
+        sendPacket(allWheelsStatus); 
     }
 
 }
