@@ -1,15 +1,23 @@
-def Input_kb():
-    while True:
-        try:
-            user_input = input("Enter a command : ")
-            if user_input.lower() == 'exit':
-                print("Exiting the program.")
-                break
-            else:
-                pass
-        except KeyboardInterrupt:
-            print("\nBYE NAJA.")
-            break
+import socket
 
-if __name__ == "__main__":
-    Input_kb()
+ESP_IP = "192.168.1.177"
+ESP_PORT = 8888 
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+print("--- Sender [wheel, time, kp, ki, kd, rpm_in] ---")
+print("Example: 1,160,1.0,1.0,1.0,250")
+
+try:
+    while True:
+        val = input("\nEnter Data: ") # พิมพ์เลข 6 ตัวคั่นด้วยคอมม่า
+        if val.lower() == 'q': break
+        
+        # จัด Format ให้เป็น [1,160,1.0,1.0,1.0,250]
+        cmd = f"[{val}]"
+        sock.sendto(cmd.encode(), (ESP_IP, ESP_PORT))
+        print(f"Sent to ESP32 >> {cmd}")
+except KeyboardInterrupt:
+    pass
+finally:
+    sock.close()

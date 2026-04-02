@@ -6,59 +6,65 @@
 const int PIN_ALL = 4;
 HardwareSerial SlaveSerial(1);
 
+// ตัวแปรส่วนกลางสำหรับล้อทั้ง 4
+struct ControlParam {
+    int timer = 160;
+    float kp = 1.0, ki = 1.0, kd = 1.0;
+    int rpm_in = 0;
+} wheelParams[4];
+
 SlaveWheel wheels[4] = {
-    SlaveWheel(1, 13), 
-    SlaveWheel(2, 27), 
-    SlaveWheel(3, 26), 
-    SlaveWheel(4, 25)
+    SlaveWheel(1, 13), SlaveWheel(2, 27), SlaveWheel(3, 26), SlaveWheel(4, 25)
 };
 
-// จอง Memory ไว้ล่วงหน้าเพื่อลดภาระ CPU ใน loop
 char globalBuffer[512]; 
 
 void setup() {
-    // Serial สำหรับ Debug ยังเปิดไว้ได้ แต่ใน loop จะไม่สั่ง print
     Serial.begin(115200);
     pinMode(PIN_ALL, OUTPUT);
     setupNetwork();
-    
-    // เคลียร์ buffer เริ่มต้น
-    memset(globalBuffer, 0, sizeof(globalBuffer));
+    Serial.println("ESP32 Wheel System Ready...");
 }
 
 void loop() {
-    int offset = 0;
+    int packetSize = Udp.parsePacket();
+    if (packetSize) {
+        char rxBuf[128];
+        int len = Udp.read(rxBuf, 127);
+        if (len > 0) {
+            rxBuf[len] = 0;
+            int w_idx, t_timer, t_rpm;
+            float t_kp, t_ki, t_kd;
+            
+            if (sscanf(rxBuf, "[%d,%d,%f,%f,%f,%d]", &w_idx, &t_timer, &t_kp, &t_ki, &t_kd, &t_rpm) == 6) {
+                if (w_idx >= 1 && w_idx <= 4) {
+                    // แก้ไขจุดที่พังตรงนี้ครับ
+                    int i = w_idx - 1;
+                    wheelParams[i].timer = t_timer;
+                    wheelParams[i].kp = t_kp;
+                    wheelParams[i].ki = t_ki;
+                    wheelParams[i].kd = t_kd;
+                    wheelParams[i].rpm_in = t_rpm;
+                }
+            }
+        }
+    }
 
+    // --- 2. อัปเดตล้อ & เตรียม Feedback [wheel, time, rpm_out] ---
+    int offset = 0;
     for (int i = 0; i < 4; i++) {
-        SlaveCommand cmd = {i + 1, 160, 1.0f, 1.0f, 1.0f, 250};
+        SlaveCommand cmd = {i + 1, wheelParams[i].timer, wheelParams[i].kp, wheelParams[i].ki, wheelParams[i].kd, wheelParams[i].rpm_in};
         wheels[i].update(cmd, SlaveSerial, PIN_ALL);
         
         SlaveFeedback fb = wheels[i].getFeedback();
         
-        // ใช้ snprintf เขียนลง globalBuffer โดยตรง (เร็วกว่า String +=)
-        int written = 0;
-        if (fb.valid) {
-            written = snprintf(globalBuffer + offset, sizeof(globalBuffer) - offset, 
-                               "[%d,%d,%.1f,%.1f,%.1f,%d,%d]", 
-                               cmd.wheel, cmd.timer, cmd.kp, cmd.ki, cmd.kd, cmd.rpm_in, fb.rpm_out);
-        } else {
-            written = snprintf(globalBuffer + offset, sizeof(globalBuffer) - offset, 
-                               "[%d,%d,%.1f,%.1f,%.1f,%d,?]", 
-                               cmd.wheel, cmd.timer, cmd.kp, cmd.ki, cmd.kd, cmd.rpm_in);
-        }
-        
-        offset += written;
-        if (i < 3 && offset < (int)sizeof(globalBuffer) - 1) {
-            globalBuffer[offset++] = '|';
-        }
+        // ส่งกลับเฉพาะ [wheel, time, rpm_out]
+        offset += snprintf(globalBuffer + offset, sizeof(globalBuffer) - offset, 
+                           "[%d,%d,%d]%s", 
+                           i + 1, wheelParams[i].timer, fb.valid ? fb.rpm_out : -1,
+                           (i < 3) ? "|" : "");
     }
 
-    // ส่ง Packet ทันที
-    if (offset > 0) {
-        globalBuffer[offset] = '\0'; // ปิดท้าย string
-        sendPacket(globalBuffer); 
-    }
-
-    // ไม่ต้องมี delay, ไม่ต้องมี Serial.print
-    // loop นี้จะวิ่งซ้ำทันทีที่ส่ง Packet เสร็จ
+    // --- 3. ส่งกลับ Windows ---
+    sendPacket(globalBuffer); 
 }
