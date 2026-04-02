@@ -22,9 +22,8 @@ bool parsePacket(char *line, SlaveCommand &cmd) {
 }
 
 void setup() {
-  Serial.begin(115200);
   pinMode(PIN_ENABLE, INPUT);
-  BusSerial.begin(115200, SERIAL_8N1, RXTX_PIN, RXTX_PIN);
+  BusSerial.begin(2000000, SERIAL_8N1, RXTX_PIN, RXTX_PIN);
   Serial.printf("Slave %d ready\n", MY_WHEEL);
 }
 
