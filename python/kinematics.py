@@ -28,7 +28,6 @@ class MecanumKinematics:
             "RR": v_rr   # Rear Right
         }
 
-# --- ทดสอบการทำงานของไฟล์นี้แบบเดี่ยวๆ ---
 if __name__ == "__main__":
     kinematics = MecanumKinematics()
     
