@@ -1,50 +1,34 @@
-import socket
-import time
-import os
+# นำเข้าโค้ดจากไฟล์คีย์บอร์ดของคุณ (สมมติว่าไฟล์ชื่อ Input_kb_mac.py)
+import Input_kb_mac 
+from kinematics import MecanumKinematics
 
-UDP_IP = "0.0.0.0"
-UDP_PORT = 5005
+# สร้างตัวคำนวณ
+kinematics = MecanumKinematics()
 
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock.bind((UDP_IP, UDP_PORT))
+def on_receive_cmd_vel():
+    """ฟังก์ชันนี้จะดึงค่าจากไฟล์คีย์บอร์ดมาคำนวณ"""
+    # ดึงค่าปัจจุบันออกมาจาก Input_kb_mac
+    current_vel = Input_kb_mac.cmd_vel
+    
+    # ส่งเข้าสมการ Kinematics
+    wheel_speeds = kinematics.calculate(
+        linear_x=current_vel["linear_x"],
+        linear_y=current_vel["linear_y"],
+        angular_z=current_vel["angular_z"]
+    )
+    
+    # พิมพ์ผลลัพธ์ความเร็วของมอเตอร์ทั้ง 4 ล้อ
+    print(f"\n--- Motor Speeds ---")
+    print(f" FL: {wheel_speeds['FL']:>5.1f} | FR: {wheel_speeds['FR']:>5.1f}")
+    print(f" RL: {wheel_speeds['RL']:>5.1f} | RR: {wheel_speeds['RR']:>5.1f}")
+    print(f"--------------------")
+    
+    # TODO: นำค่า wheel_speeds ที่ได้ไปสั่งงานมอเตอร์ (PWM) หรือส่งผ่าน Serial ต่อไป
 
-# ตัวแปรสำหรับคำนวณ Hz
-prev_time = time.time()
-counter = 0
-hz = 0
-last_feedback = ""
 
-# ถ้าคุณต้องการโชว์สิ่งที่ส่งไปล่าสุดในไฟล์นี้ด้วย 
-# ปกติถ้าส่งจากอีกไฟล์ (Input_KB) ไฟล์นี้จะไม่รู้ 
-# ยกเว้นเราจะพิมพ์ทิ้งไว้หรือใช้ระบบแชร์ข้อมูล 
-last_sent = "Waiting..." 
-
-print("--- System Monitoring Started ---")
-
-try:
-    while True:
-        # 1. รับข้อมูล Feedback จาก ESP32
-        data, addr = sock.recvfrom(1024)
-        last_feedback = data.decode('utf-8')
-        
-        # 2. คำนวณ Hz
-        counter += 1
-        current_time = time.time()
-        elapsed = current_time - prev_time
-        
-        if elapsed >= 1.0:
-            hz = counter / elapsed
-            counter = 0
-            prev_time = current_time
-
-        # 3. แสดงผล Output แบบบรรทัดเดียว (ใช้ \r เพื่อให้มันทับที่เดิม)
-        # Format: Hz: 82.5 | sent [x,x,x,x,x,x] | feedback [x,x,x]|[x,x,x]...
-        output = f"\rHz: {hz:6.2f} | feedback {last_feedback}"
-        
-        # พิมพ์ออกแบบไม่ขึ้นบรรทัดใหม่
-        print(output)
-
-except KeyboardInterrupt:
-    print("\n--- Stopped ---")
-finally:
-    sock.close()
+if __name__ == "__main__":
+    Input_kb_mac.starts_ui() 
+    Input_kb_mac.print_status = on_receive_cmd_vel
+    
+    # เริ่มรันคีย์บอร์ด
+    Input_kb_mac.main()
