@@ -2,7 +2,7 @@
 import Input_kb_mac 
 from kinematics import MecanumKinematics
 from speed_to_rpm import SpeedToRPM
-import Send
+import python.Send as Send
 
 kinematics = MecanumKinematics()
 converter = SpeedToRPM(wheel_radius=0.1016)

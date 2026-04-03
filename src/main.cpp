@@ -90,18 +90,16 @@ void loop() {
         // คุยกับ Slave (Serial)
         wheels[i].update(cmd, SlaveSerial, PIN_ALL);
         
-        // รับค่าตอบกลับ
+        // รับค่าตอบกลับจากล้อ
         SlaveFeedback fb = wheels[i].getFeedback();
         
-        // รวมร่าง Feedback: [wheel, time, rpm_out]
-        // เปลี่ยน Format การโชว์ ให้เห็นทั้ง in และ out
+        // รวมร่าง Feedback ใหม่ให้ออกมาเป็น: [wheel, timer, rpm_out]
         int written = snprintf(allWheelsStatus + writePos, sizeof(allWheelsStatus) - writePos, 
-                       "[%d,%d,In:%d,Out:%d]%s", 
-                       i + 1, 
-                       wheelParams[i].timer, 
-                       wheelParams[i].rpm_in,      // โชว์ค่าที่รับมาจาก Python
-                       fb.valid ? fb.rpm_out : -1, // โชว์ค่าจริงที่ล้อหมุนอยู่
-                       (i < 3) ? "|" : "");
+                               "[%d,%d,%d]%s", 
+                               i + 1, 
+                               wheelParams[i].timer, 
+                               fb.valid ? fb.rpm_out : -1, 
+                               (i < 3) ? "|" : "");
         writePos += written;
     }
 

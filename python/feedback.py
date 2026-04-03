@@ -39,7 +39,7 @@ try:
 
         # 3. แสดงผล Output แบบบรรทัดเดียว (ใช้ \r เพื่อให้มันทับที่เดิม)
         # Format: Hz: 82.5 | sent [x,x,x,x,x,x] | feedback [x,x,x]|[x,x,x]...
-        output = f"\rHz: {hz:6.2f} | feedback {last_feedback}"
+        output = f"\r{hz:6.2f} f: {last_feedback}"
         
         # พิมพ์ออกแบบไม่ขึ้นบรรทัดใหม่
         print(output)
