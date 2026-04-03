@@ -5,7 +5,7 @@ from speed_to_rpm import SpeedToRPM
 import Send
 
 kinematics = MecanumKinematics()
-converter = SpeedToRPM(wheel_radius=0.1016)
+converter = SpeedToRPM(wheel_radius=0.0508)  # สมมติว่าล้อมีรัศมี 50.8 mm (2 นิ้ว)
 esp_sender = Send.ESPSender(ip="192.168.1.177", port=8888)
 
 def on_receive_cmd_vel():
