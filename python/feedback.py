@@ -1,6 +1,6 @@
 import socket
 import time
-import os
+import re
 
 UDP_IP = "0.0.0.0"
 UDP_PORT = 5005
@@ -12,20 +12,17 @@ sock.bind((UDP_IP, UDP_PORT))
 prev_time = time.time()
 counter = 0
 hz = 0
-last_feedback = ""
-
-# ถ้าคุณต้องการโชว์สิ่งที่ส่งไปล่าสุดในไฟล์นี้ด้วย 
-# ปกติถ้าส่งจากอีกไฟล์ (Input_KB) ไฟล์นี้จะไม่รู้ 
-# ยกเว้นเราจะพิมพ์ทิ้งไว้หรือใช้ระบบแชร์ข้อมูล 
-last_sent = "Waiting..." 
 
 print("--- System Monitoring Started ---")
+print("Format: Hz | [[wheel, timer, rpm_out], ...]")
+print("-" * 80)
 
 try:
     while True:
         # 1. รับข้อมูล Feedback จาก ESP32
+        # Expected format: [wheel,timer,rpm_out]|[wheel,timer,rpm_out]|...
         data, addr = sock.recvfrom(1024)
-        last_feedback = data.decode('utf-8')
+        feedback_str = data.decode('utf-8').strip()
         
         # 2. คำนวณ Hz
         counter += 1
@@ -36,13 +33,25 @@ try:
             hz = counter / elapsed
             counter = 0
             prev_time = current_time
-
-        # 3. แสดงผล Output แบบบรรทัดเดียว (ใช้ \r เพื่อให้มันทับที่เดิม)
-        # Format: Hz: 82.5 | sent [x,x,x,x,x,x] | feedback [x,x,x]|[x,x,x]...
-        output = f"\r{hz:6.2f} f: {last_feedback}"
         
-        # พิมพ์ออกแบบไม่ขึ้นบรรทัดใหม่
-        print(output)
+        # 3. Parse feedback และคำนวณ round-trip time
+        # Regex pattern: [wheel, timer, rpm_out]
+        pattern = r'\[(\d+),(\d+),(-?\d+)\]'
+        matches = re.findall(pattern, feedback_str)
+        
+        if matches:
+            # ส่วนแสดงผล
+            output_array = []
+            
+            for wheel, sent_timer_str, rpm_out in matches:
+                sent_timer = int(sent_timer_str)
+                output_array.append([int(wheel), sent_timer, int(rpm_out)])
+            
+            # 4. แสดงผล Output แบบใหม่
+            output = f"{hz:6.2f} | {output_array}"
+            print(output)
+        else:
+            print(f"\rNo valid feedback: {feedback_str}")
 
 except KeyboardInterrupt:
     print("\n--- Stopped ---")

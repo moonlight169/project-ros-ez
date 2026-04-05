@@ -12,12 +12,12 @@ class ESPSender:
         self.d_val = 1.0
         self.r_val = 200
 
-    def send_rpm(self, rpm_fl, rpm_fr, rpm_rl, rpm_rr):
+    def send_rpm(self, rpm_fl, rpm_fr, rpm_rl, rpm_rr, timer=0):
         """
         รับค่า RPM ทั้ง 4 ล้อ จัด Format แล้วส่งผ่าน UDP
         """
         # เพิ่มตัวแปร timer ที่คุณใช้ใน ESP32 (เช่น 160)
-        self.timer_val = 160 
+        self.timer_val = timer 
         
         # จัดรูปแบบใหม่ให้ตรงกับ C++ -> [wheel, timer, p, i, d, target_rpm]
         # สังเกตว่าเราใช้ int() ครอบ rpm เพื่อตัดทศนิยมทิ้งไปเลย ข้อมูลจะได้สั้นๆ

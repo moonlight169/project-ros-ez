@@ -3,6 +3,7 @@ import Input_kb_mac
 from kinematics import MecanumKinematics
 from speed_to_rpm import SpeedToRPM
 import Send
+import time
 
 kinematics = MecanumKinematics(wheel_radius=0.0508, lx=0.15, ly=0.15)
 converter = SpeedToRPM(wheel_radius=0.0508)  # 4 นิ้ว = 0.0508 m (รัศมี)
@@ -18,6 +19,8 @@ def on_receive_cmd_vel():
         linear_y=current_vel["linear_y"],
         angular_z=current_vel["angular_z"]
     )
+
+    timestamp_ms = int(time.time() * 1000) & 0xFFFFFFFF
     
     # 2. แปลงความเร็ว m/s เป็น RPM
     rpm_fl = converter.convert(wheel_speeds['FL'])
@@ -26,7 +29,7 @@ def on_receive_cmd_vel():
     rpm_rr = converter.convert(wheel_speeds['RR'])
     
     # 3. ส่งข้อมูลผ่าน UDP ไปยัง ESP32 และรับข้อความที่แพ็กแล้วกลับมาโชว์
-    data_packet = esp_sender.send_rpm(rpm_fl, rpm_fr, rpm_rl, rpm_rr)
+    data_packet = esp_sender.send_rpm(rpm_fl, rpm_fr, rpm_rl, rpm_rr, timer=timestamp_ms)
     
     # 4. พิมพ์ผลลัพธ์บนจอคอม (เปลี่ยนมาโชว์ค่า RPM ให้ถูกต้อง)
     print(f"\n--- Motor Speeds (RPM) ---")

@@ -9,13 +9,13 @@ HardwareSerial BusSerial(1);
 
 struct SlaveCommand {
   int   wheel;
-  int   timer;
+  uint32_t timer;
   float kp, ki, kd;
   int   rpm_in;
 };
 
 bool parsePacket(char *line, SlaveCommand &cmd) {
-  return sscanf(line, "[%d,%d,%f,%f,%f,%d]",
+  return sscanf(line, "[%d,%u,%f,%f,%f,%d]",
     &cmd.wheel, &cmd.timer,
     &cmd.kp, &cmd.ki, &cmd.kd,
     &cmd.rpm_in) == 6;
@@ -48,7 +48,7 @@ void loop() {
 
         char out[32];
         int len = snprintf(out, sizeof(out),
-          "[%d,%d,%d]\n",
+          "[%d,%u,%d]\n",
           cmd.wheel, cmd.timer, rpm_out);
 
         BusSerial.write((uint8_t*)out, len);

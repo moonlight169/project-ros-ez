@@ -9,7 +9,7 @@ HardwareSerial SlaveSerial(1);
 
 // โครงสร้างเก็บสถานะปัจจุบันของแต่ละล้อ
 struct DataLoop {
-    int timer = 160;
+    uint32_t timer = 160;
     float kp = 1.0f, ki = 1.0f, kd = 1.0f;
     int rpm_in = 0;
 } wheelParams[4];
@@ -46,12 +46,13 @@ void loop() {
                 ptr++; 
                 if (*ptr == '[') continue; 
 
-                int w_idx, t_timer;
+                int w_idx;
+                uint32_t t_timer;
                 float t_kp, t_ki, t_kd, t_rpm; // เปลี่ยน t_rpm ให้เป็น float ก่อน
 
                 // คัดแยกข้อมูล: [wheel, timer, kp, ki, kd, rpm]
                 // ใช้ %f กับ t_rpm เพื่อรองรับเลขทศนิยมจาก Python
-                if (sscanf(ptr, "%d,%d,%f,%f,%f,%f", 
+                if (sscanf(ptr, "%d,%u,%f,%f,%f,%f", 
                            &w_idx, &t_timer, &t_kp, &t_ki, &t_kd, &t_rpm) == 6) {
                     
                     if (w_idx >= 1 && w_idx <= 4) {
@@ -95,7 +96,7 @@ void loop() {
         
         // รวมร่าง Feedback ใหม่ให้ออกมาเป็น: [wheel, timer, rpm_out]
         int written = snprintf(allWheelsStatus + writePos, sizeof(allWheelsStatus) - writePos, 
-                               "[%d,%d,%d]%s", 
+                               "[%d,%u,%d]%s", 
                                i + 1, 
                                wheelParams[i].timer, 
                                fb.valid ? fb.rpm_out : -1, 
