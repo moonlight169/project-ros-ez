@@ -1,9 +1,9 @@
 import math
 
 class SpeedToRPM:
-    def __init__(self, wheel_radius=0.05):
+    def __init__(self, wheel_radius=0.0508):
         """
-        :param wheel_radius: รัศมีของล้อหุ่นยนต์ หน่วยเป็นเมตร (เช่น 5 cm = 0.05 m)
+        :param wheel_radius: รัศมีของล้อหุ่นยนต์ หน่วยเป็นเมตร (4 นิ้ว = 0.0508 m)
         """
         self.wheel_radius = wheel_radius
 
